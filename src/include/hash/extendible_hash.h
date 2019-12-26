@@ -24,7 +24,7 @@ class ExtendibleHash : public HashTable<K, V> {
     Bucket() = default;
     explicit Bucket(size_t _id, int _depth): id(_id), local_depth(_depth){}
     std::map<K, V> items;
-    bool is_full = false;
+    bool overflow = false;
     int id = 0;
     size_t local_depth = 0;
   };
@@ -35,6 +35,8 @@ public:
   size_t HashKey(const K &key);
   // helper function to get global & local depth
   int GetGlobalDepth() const;
+  // helper function to get the index of the bucket a key belongs to
+  size_t GetBucketIndex(const K &key);
   int GetLocalDepth(int bucket_id) const;
   int GetNumBuckets() const;
   // lookup and modifier
@@ -48,6 +50,7 @@ private:
   mutable std::mutex mtx; // protects the hash table.
 
   const size_t bucket_size; // maximum number of entries in a bucket
+  int bucket_count; // number of buckets in use.
   size_t kv_count; // key-value pairs
   std::vector<std::shared_ptr<Bucket>> hashmap;  
 };
