@@ -73,8 +73,8 @@ template <typename K, typename V>
 bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
   std::lock_guard<std::mutex> lock(mtx);
   size_t idx = GetBucketIndex(key);
-  if(hashmap[idx]){
-    auto bucket = hashmap[idx];
+  auto bucket = hashmap[idx];
+  if(bucket != nullptr){
     if(bucket->items.count(key)){
       value = bucket->items[key];
       return true;
@@ -89,12 +89,12 @@ bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Remove(const K &key) {
-  std::lock_guard<std::mutex> lock(mtx);
   size_t num_of_pairs = 0;
+  std::lock_guard<std::mutex> lock(mtx);
   size_t idx = GetBucketIndex(key);
-  
-  if(hashmap[idx]){
-    auto bucket = hashmap[idx];
+
+  auto bucket = hashmap[idx];
+  if(bucket != nullptr){
     num_of_pairs += bucket->items.erase(key);
     pair_count -= num_of_pairs;
   }
@@ -102,7 +102,7 @@ bool ExtendibleHash<K, V>::Remove(const K &key) {
 }
 
 /*
- * Helper function 
+ * Helper function that splits a bucket (in place) and returns a new one.
  */
 
 template <typename K, typename V>
@@ -113,7 +113,7 @@ ExtendibleHash<K,V>::split(std::shared_ptr<Bucket> &b){
     ++b->local_depth;
     ++res->local_depth;
     for(auto it = b->items.begin(); it != b->items.end();){
-      if(HashKey(it->first) & ((1 << b->local_depth) - 1)){
+      if(HashKey(it->first) & (1 << (b->local_depth - 1))){
         res->items.insert(*it);
         res->id = HashKey(it->first) &((1 << b->local_depth) - 1);
         it = b->items.erase(it);
@@ -173,9 +173,6 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
       global_depth = bucket->local_depth;
       hashmap.resize(hashmap.size() * factor);
       
-      hashmap[bucket->id] = bucket;
-      hashmap[new_bucket->id] = new_bucket;
-
       for(size_t i = 0; i < sz; i++){
         if(hashmap[i]){
           if (i < hashmap[i]->id ){
@@ -188,19 +185,19 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
           }
         }
       }
+      hashmap[bucket->id] = bucket;
+      hashmap[new_bucket->id] = new_bucket;
+
     } else{
       for (size_t i = old_idx; i < hashmap.size(); i += (1 << old_depth)){
         hashmap[i].reset();
       }
-      hashmap[bucket->id] = bucket;
-      hashmap[new_bucket->id] = new_bucket;
-
       auto step = 1 << bucket->local_depth;
 
-      for(size_t i = bucket->id + step; i < hashmap.size(); i += step){
+      for(size_t i = bucket->id; i < hashmap.size(); i += step){
         hashmap[i] = bucket;
       }
-      for(size_t i = new_bucket->id + step; i < hashmap.size(); i += step){
+      for(size_t i = new_bucket->id ; i < hashmap.size(); i += step){
         hashmap[i] = new_bucket;
       }
     }
