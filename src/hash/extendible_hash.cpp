@@ -12,9 +12,10 @@ namespace cmudb {
  */
 template <typename K, typename V>
 ExtendibleHash<K, V>::ExtendibleHash(size_t size): 
-  bucket_size(size), global_depth(0), bucket_count(0), kv_pairs(0){
+  bucket_size(size),  bucket_count(0), pair_count(0){
   hashmap.emplace_back(new Bucket(0, 0));
-  bucket_count = 1;  
+  global_depth = 0;
+  bucket_count = 1;
 }
 
 /*
@@ -50,7 +51,6 @@ int ExtendibleHash<K, V>::GetGlobalDepth() const {
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
   std::lock_guard<std::mutex> lock(mtx);
-  assert(bucket_id >= 0 && bucket_id < static_cast<int>(hashmap.size()))
   if (hashmap[bucket_id]){
     return hashmap[bucket_id]->local_depth;
   }
@@ -62,7 +62,7 @@ int ExtendibleHash<K, V>::GetLocalDepth(int bucket_id) const {
  */
 template <typename K, typename V>
 int ExtendibleHash<K, V>::GetNumBuckets() const {
-  std::lock_guard<mutex> lock(mtx);
+  std::lock_guard<std::mutex> lock(mtx);
   return bucket_count;
 }
 
@@ -73,8 +73,8 @@ template <typename K, typename V>
 bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
   std::lock_guard<std::mutex> lock(mtx);
   size_t idx = GetBucketIndex(key);
-  auto bucket = hashmap[key];
-  if(bucket != nullptr){
+  if(hashmap[idx]){
+    auto bucket = hashmap[idx];
     if(bucket->items.count(key)){
       value = bucket->items[key];
       return true;
@@ -89,13 +89,14 @@ bool ExtendibleHash<K, V>::Find(const K &key, V &value) {
  */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Remove(const K &key) {
-  size_t num_of_pairs = 0;
   std::lock_guard<std::mutex> lock(mtx);
+  size_t num_of_pairs = 0;
   size_t idx = GetBucketIndex(key);
-  auto bucket = hashmap[key];
-  if(bucket != nullptr){
+  
+  if(hashmap[idx]){
+    auto bucket = hashmap[idx];
     num_of_pairs += bucket->items.erase(key);
-    kv_count -= num_of_pairs;
+    pair_count -= num_of_pairs;
   }
   return num_of_pairs != 0;
 }
@@ -112,7 +113,7 @@ ExtendibleHash<K,V>::split(std::shared_ptr<Bucket> &b){
     ++b->local_depth;
     ++res->local_depth;
     for(auto it = b->items.begin(); it != b->items.end();){
-      if(HashKey(it->first) & (1 << (b->local_depth - 1))){
+      if(HashKey(it->first) & ((1 << b->local_depth) - 1)){
         res->items.insert(*it);
         res->id = HashKey(it->first) &((1 << b->local_depth) - 1);
         it = b->items.erase(it);
@@ -161,7 +162,7 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
     std::shared_ptr<Bucket> new_bucket = split(bucket);
     
     if(new_bucket == nullptr){
-      bucket->depth = old_depth;
+      bucket->local_depth = old_depth;
       return;
     }
 
@@ -171,12 +172,13 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
 
       global_depth = bucket->local_depth;
       hashmap.resize(hashmap.size() * factor);
+      
       hashmap[bucket->id] = bucket;
       hashmap[new_bucket->id] = new_bucket;
 
       for(size_t i = 0; i < sz; i++){
         if(hashmap[i]){
-          if (i < hashmap[i]->id || ((i && ((1 << hashmap[i]->local_depth)-1))!= hashmap[i]->id)){
+          if (i < hashmap[i]->id ){
             hashmap[i].reset();
           }else{
             auto step = 1 << hashmap[i]->local_depth;
@@ -187,7 +189,7 @@ void ExtendibleHash<K, V>::Insert(const K &key, const V &value) {
         }
       }
     } else{
-      for (size_t i = old_idx; i < hashmap.size; i += (1 << old_depth)){
+      for (size_t i = old_idx; i < hashmap.size(); i += (1 << old_depth)){
         hashmap[i].reset();
       }
       hashmap[bucket->id] = bucket;

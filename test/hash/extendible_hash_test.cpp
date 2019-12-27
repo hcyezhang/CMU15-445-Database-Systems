@@ -37,6 +37,10 @@ TEST(ExtendibleHashTest, SampleTest) {
   EXPECT_EQ("h", result);
   test->Find(2, result);
   EXPECT_EQ("b", result);
+  test->Find(6, result);
+  EXPECT_EQ("f", result);
+  test->Find(1, result);
+  EXPECT_EQ("a", result);
   EXPECT_EQ(0, test->Find(10, result));
 
   // delete test

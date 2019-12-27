@@ -13,6 +13,10 @@ vector
 -
 string
 -
+mutex
+-
+map
+-
 hash/hash_table.h
 ../src/include/hash/hash/hash_table.h
 
