@@ -6,6 +6,20 @@
 
 #IncludeRegexTransform: 
 
+../src/include/buffer/lru_replacer.h
+mutex
+-
+unordered_map
+-
+buffer/replacer.h
+../src/include/buffer/buffer/replacer.h
+hash/extendible_hash.h
+../src/include/buffer/hash/extendible_hash.h
+
+../src/include/buffer/replacer.h
+cstdlib
+-
+
 ../src/include/common/config.h
 atomic
 -
@@ -48,13 +62,9 @@ common/config.h
 common/rwmutex.h
 ../src/include/page/common/rwmutex.h
 
-/Users/Ye/Documents/code/cmu15-445/src/hash/extendible_hash.cpp
-list
--
-hash/extendible_hash.h
-/Users/Ye/Documents/code/cmu15-445/src/hash/hash/extendible_hash.h
+/Users/Ye/Documents/code/cmu15-445/src/buffer/lru_replacer.cpp
+buffer/lru_replacer.h
+/Users/Ye/Documents/code/cmu15-445/src/buffer/buffer/lru_replacer.h
 page/page.h
-/Users/Ye/Documents/code/cmu15-445/src/hash/page/page.h
-vector
--
+/Users/Ye/Documents/code/cmu15-445/src/buffer/page/page.h
 

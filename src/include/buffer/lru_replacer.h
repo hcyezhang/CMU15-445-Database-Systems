@@ -9,12 +9,22 @@
 
 #pragma once
 
+#include <mutex>
+#include <unordered_map>
+
 #include "buffer/replacer.h"
 #include "hash/extendible_hash.h"
 
 namespace cmudb {
 
 template <typename T> class LRUReplacer : public Replacer<T> {
+  struct Node {
+    Node() = default;
+    explicit Node(T d, Node* p = nullptr): data(d), prev(p){}
+    T data;
+    Node *prev = nullptr;
+    std::unique_ptr<Node> next;
+  };
 public:
   // do not change public interface
   LRUReplacer();
@@ -31,6 +41,10 @@ public:
 
 private:
   // add your member variables here
+  mutable std::mutex mtx;
+  std::unordered_map<T, Node*> hashmap;
+  std::unique_ptr<Node> head;
+  Node* tail;
 };
 
 } // namespace cmudb
